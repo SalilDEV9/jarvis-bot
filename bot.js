@@ -65,9 +65,7 @@ io.on('connection', (socket) => {
         } else if (data.type === 'm') {
             await client.sendMessage(selected.senderID, data.manualText);
             logInteraction(selected.senderName, 'Manual');
-            console.log(`[Manual Sent to ${selected.senderName}]`);
         } else if (data.type === 'a') {
-            console.log(`[JARVIS processing for ${selected.senderName}...]`);
             try {
                 const prompt = `You are JARVIS, alter ego of Siddharth. Vibe: ${currentVibe}. Use Hinglish. NEVER call a girl "bhai/bro". Show utmost respect to Ishaa Mam. 1 line max.`;
                 const completion = await groq.chat.completions.create({
@@ -80,7 +78,6 @@ io.on('connection', (socket) => {
                 let aiReply = `JARVIS: ${completion.choices[0].message.content.trim()}`;
                 await selected.msgObject.reply(aiReply);
                 logInteraction(selected.senderName, 'AI');
-                console.log(`[AI Sent]: ${aiReply}`);
             } catch (e) { console.log('AI Error'); }
         }
 
@@ -97,21 +94,25 @@ const client = new Client({
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
             '--disable-gpu'
         ],
         timeout: 0 
     }
 });
 
-client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
+// Improved QR Generation for Render Logs
+client.on('qr', (qr) => {
+    console.log('[SYSTEM] Scan this QR Code to log JARVIS into the Cloud:');
+    qrcode.generate(qr, { small: true });
+});
 
 client.on('ready', () => {
     console.log('\n==================================');
     console.log('JARVIS BOSS INTERFACE IS ONLINE');
-    console.log(`Go to http://localhost:${process.env.PORT || 3000} in your browser!`);
     console.log('==================================\n');
 });
+
+client.on('auth_failure', () => console.error('[ERROR] Auth failed, restart and scan again.'));
 
 client.on('message', async (msg) => {
     if (msg.from.includes('@newsletter') || msg.isStatus) return;
@@ -135,12 +136,11 @@ client.on('message', async (msg) => {
     });
 
     messageQueue.sort((a, b) => a.priority - b.priority);
-    
     io.emit('update_queue', messageQueue);
-    console.log(`[!] New message added to UI Queue.`); 
 });
 
 client.initialize();
 
+// Using 0.0.0.0 for external cloud access
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Web Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`Web Server running on port ${PORT}`));
