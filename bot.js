@@ -1,4 +1,4 @@
-require('dotenv').config(); // Loads the hidden .env file
+require('dotenv').config();
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const Groq = require('groq-sdk');
@@ -6,26 +6,22 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 
-// --- WEB SERVER SETUP ---
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
 
-// --- INITIALIZATION ---
-// Secure API Key Loading
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY }); 
 
 const VIPS = ['Puja ~🧿', 'Mom', 'Dad', 'Seema', 'Lalit', 'Isha', 'Ishaa Mam']; 
 const WORK_KEYWORDS = ['INDRA-NET', 'MindQuest', 'GSoC', 'IIIT', 'assignment', 'project', 'deadline'];
 
 let messageQueue = [];
-let dailyLogs = []; // Added back for the report feature
+let dailyLogs = []; 
 let currentVibe = "chill";
 let isDND = false;
 
-// Helpers
 function getPriorityLabel(senderName, body) {
     if (VIPS.includes(senderName)) return { level: 1, tag: '🔴 [VIP]' };
     if (WORK_KEYWORDS.some(kw => body.toLowerCase().includes(kw.toLowerCase()))) return { level: 2, tag: '🔵 [WORK]' };
@@ -36,7 +32,6 @@ function logInteraction(name, type) {
     dailyLogs.push({ name, type, time: new Date().toLocaleTimeString() });
 }
 
-// Socket.io (Web Dashboard Communication)
 io.on('connection', (socket) => {
     console.log('[UI] Dashboard Connected.');
     socket.emit('update_status', { isDND, vibe: currentVibe });
@@ -89,13 +84,11 @@ io.on('connection', (socket) => {
             } catch (e) { console.log('AI Error'); }
         }
 
-        // Remove from queue and update UI
         messageQueue.splice(data.index, 1);
         io.emit('update_queue', messageQueue);
     });
 });
 
-// --- WHATSAPP CLIENT ---
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: { 
@@ -116,7 +109,7 @@ client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 client.on('ready', () => {
     console.log('\n==================================');
     console.log('JARVIS BOSS INTERFACE IS ONLINE');
-    console.log('Go to http://localhost:3000 in your browser!');
+    console.log(`Go to http://localhost:${process.env.PORT || 3000} in your browser!`);
     console.log('==================================\n');
 });
 
@@ -144,8 +137,10 @@ client.on('message', async (msg) => {
     messageQueue.sort((a, b) => a.priority - b.priority);
     
     io.emit('update_queue', messageQueue);
-    console.log(`[!] New message added to UI Queue.`);
+    console.log(`[!] New message added to UI Queue.`); 
 });
 
 client.initialize();
-server.listen(3000, () => console.log('Web Server running on port 3000'));
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Web Server running on port ${PORT}`));
