@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JARVIS | Boss Dashboard</title>
+    <style>
+        body { background-color: #0a0a0a; color: #00ffff; font-family: 'Courier New', monospace; padding: 20px; }
+        .header { border-bottom: 2px solid #00ffff; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .controls { display: flex; gap: 15px; margin-bottom: 20px; }
+        button, select { background: #111; color: #00ffff; border: 1px solid #00ffff; padding: 10px; cursor: pointer; }
+        button:hover { background: #00ffff; color: #000; }
+        .queue-item { border: 1px solid #333; padding: 15px; margin-bottom: 10px; border-left: 5px solid #00ffff; }
+        .actions { margin-top: 10px; display: flex; gap: 10px; }
+        .manual-input { width: 70%; padding: 8px; background: #222; border: 1px solid #555; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>JARVIS BOSS INTERFACE</h1>
+        <h2 id="status">Status: ONLINE | DND: OFF | Vibe: CHILL</h2>
+    </div>
+
+    <div class="controls">
+        <button onclick="toggleDND()">Toggle DND</button>
+        <select id="vibeSelect" onchange="changeVibe()">
+            <option value="chill">Chill Vibe</option>
+            <option value="formal">Formal Vibe</option>
+            <option value="serious">Serious Vibe</option>
+        </select>
+        <button onclick="generateReport()">Generate Report</button>
+    </div>
+
+    <h3>Pending Queue</h3>
+    <div id="queue"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Listen for Queue Updates from Backend
+        socket.on('update_queue', (queue) => {
+            const qDiv = document.getElementById('queue');
+            qDiv.innerHTML = '';
+            if (queue.length === 0) qDiv.innerHTML = '<p>All caught up, Sir.</p>';
+
+            queue.forEach((msg, index) => {
+                qDiv.innerHTML += `
+                    <div class="queue-item">
+                        <strong>${msg.tag} ${msg.senderName}</strong><br>
+                        <em>"${msg.body}"</em><br>
+                        <div class="actions">
+                            <button onclick="sendAction(${index}, 'a')">🤖 AI Reply</button>
+                            <input type="text" id="manual-${index}" class="manual-input" placeholder="Type manual reply...">
+                            <button onclick="sendAction(${index}, 'm')">✍️ Send Manual</button>
+                            <button onclick="sendAction(${index}, 's')">❌ Skip</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        socket.on('update_status', (data) => {
+            document.getElementById('status').innerText = `Status: ONLINE | DND: ${data.isDND ? 'ON' : 'OFF'} | Vibe: ${data.vibe.toUpperCase()}`;
+            document.getElementById('vibeSelect').value = data.vibe;
+        });
+
+        // Send Actions to Backend
+        function sendAction(index, type) {
+            let manualText = "";
+            if (type === 'm') {
+                manualText = document.getElementById(`manual-${index}`).value;
+                if (!manualText) return alert("Please type a message first.");
+            }
+            socket.emit('handle_action', { index, type, manualText });
+        }
+
+        function toggleDND() { socket.emit('toggle_dnd'); }
+        function changeVibe() { socket.emit('change_vibe', document.getElementById('vibeSelect').value); }
+        function generateReport() { alert("Report generated in terminal, Sir."); socket.emit('generate_report'); }
+    </script>
+</body>
+</html>
